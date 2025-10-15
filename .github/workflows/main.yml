@@ -1,27 +1,55 @@
-name: SonarCloud PR Scan
+name: Java CI/CD Pipeline
 
-on:  
-  pull_request:  # Runs on pull requests
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-  sonar:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set Up JDK
-        uses: actions/setup-java@v3
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
+          java-version: '17'
           distribution: 'temurin'
-          java-version: '21'
 
-      - name: Run SonarCloud Scan
+      - name: Build with Maven
+        run: mvn clean package --batch-mode
+
+      - name: Run Tests
+        run: mvn test
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-app
+          path: target/*.jar
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: java-app
+
+      - name: Simulate Deployment
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          DEPLOY_ENV: ${{ secrets.DEPLOY_ENV }}
         run: |
-          mvn clean verify sonar:sonar 
-            -Dsonar.organization=devopstct 
-            -Dsonar.projectKey=devopstct
-            -Dsonar.host.url=https://sonarcloud.io
+          mkdir -p deploy
+          cp *.jar deploy/
+          echo "Deployed to $DEPLOY_ENV environment"
